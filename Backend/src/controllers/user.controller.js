@@ -66,7 +66,7 @@ const registerUser = asyncHandler( async (req,res) => {
     const coverImage = await uploadOnCloudinary(coverImageLocalPath)
     
     if(!avatar) {
-        throw new ApiError(400, "Avatar file is required")
+        throw new ApiError(400, "Cloudinary error : Avatar file is required")
     }
     
     const user = await User.create({
@@ -435,7 +435,7 @@ const getWatchHistory = asyncHandler(async(req, res) => {
 
     return res
     .status(200)
-    .json(new ApiResponse(200, user[0].getWatchHistory, "watchHistory fetched successfully"))
+    .json(new ApiResponse(200, user[0].watchHistory, "watchHistory fetched successfully"))
 })
 
 export {
