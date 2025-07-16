@@ -15,6 +15,10 @@ const getAllVideos = asyncHandler(async(req, res) => {
         userId 
     } = req.query
 
+    if(!req.user) {
+        throw new ApiError(400, "user should to be logged-In")
+    }
+
     const match = {
         ...(query ? { title: { $regex: query, $options: "i" }} : {}),
         ...(userId ? { owner: mongoose.Types.ObjectId(userId)} : {})
@@ -42,7 +46,7 @@ const getAllVideos = asyncHandler(async(req, res) => {
                 views: 1,
                 isPublished: 1,
                 owner: {
-                    $arrayElemAt: ["videosByOwner",0]
+                    $arrayElemAt: ["$videosByOwner",0]
                 }
             }
         },
