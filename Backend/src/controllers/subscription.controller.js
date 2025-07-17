@@ -1,7 +1,8 @@
+import { asyncHandler } from "../utils/asyncHandler.js"
 import { isValidObjectId } from "mongoose"
-import { ApiError } from "../utils/ApiError"
-import { Subscription } from "../models/subscription.model"
-import { ApiResponse } from "../utils/ApiResponse"
+import { ApiError } from "../utils/ApiError.js"
+import { Subscription } from "../models/subscription.model.js"
+import { ApiResponse } from "../utils/ApiResponse.js"
 
 const toggleSubscription = asyncHandler(async (req, res) => {
     const {channelId} = req.params
@@ -40,7 +41,7 @@ const getUserChannelSubscribers = asyncHandler(async (req, res) => {
         throw new ApiError(400, "Error: user should to be loggedIn!")
     }
 
-    const TotalSubscribers = await Subscription.aggregate(
+    const totalSubscribers = await Subscription.aggregate([
         {
             $match: {
                 channel: channelId
@@ -51,7 +52,7 @@ const getUserChannelSubscribers = asyncHandler(async (req, res) => {
                 from: "users",
                 localField: "subscriber",
                 foreignField: "_id",
-                as: "subscribers",
+                as: "totalChannelSubscribers",
                 pipeline: [
                     {
                         $project: {
@@ -63,15 +64,15 @@ const getUserChannelSubscribers = asyncHandler(async (req, res) => {
                 ]
             }
         }
-    )
+    ])
 
-    if(!subscribers) {
+    if(!totalSubscribers.length) {
         throw new ApiError(400, "there are no subscribers")
     }
 
     return res
       .status(200)
-      .json(new ApiResponse(200, TotalSubscribers[0].subscribers, "fetched successfully"))
+      .json(new ApiResponse(200, totalSubscribers, "fetched successfully"))
 })
 
 const getSubscribedChannels = asyncHandler(async (req, res) => {
@@ -85,7 +86,7 @@ const getSubscribedChannels = asyncHandler(async (req, res) => {
         throw new ApiError(400, "Error: user should to be loggedIn!")
     }
 
-    const TotalChannels = await Subscription.aggregate(
+    const TotalChannels = await Subscription.aggregate([
         {
             $match: {
                 subscriber: subscriberId
@@ -108,9 +109,9 @@ const getSubscribedChannels = asyncHandler(async (req, res) => {
                 ]
             }
         }
-    )
+    ])
 
-    if(!TotalChannels) {
+    if(!TotalChannels.length) {
         throw new ApiError(400, "there are no channels you subscribed")
     }
 

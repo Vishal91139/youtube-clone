@@ -1,9 +1,9 @@
 import mongoose, { isValidObjectId } from "mongoose";
-import { asyncHandler } from "../utils/asyncHandler";
-import { Video } from "../models/video.model";
-import { ApiError } from "../utils/ApiError";
-import { uploadOnCloudinary } from "../utils/cloudinary";
-import { ApiResponse } from "../utils/ApiResponse";
+import { asyncHandler } from "../utils/asyncHandler.js";
+import { Video } from "../models/video.model.js";
+import { ApiError } from "../utils/ApiError.js";
+import { uploadOnCloudinary } from "../utils/cloudinary.js";
+import { ApiResponse } from "../utils/ApiResponse.js";
 
 const getAllVideos = asyncHandler(async(req, res) => {
     const {
@@ -33,7 +33,17 @@ const getAllVideos = asyncHandler(async(req, res) => {
                 from: "users",
                 localField: "owner",
                 foreignField: "_id",
-                as: "videosByOwner"
+                as: "videosByOwner",
+                pipeline: [
+                    {
+                        $project: {
+                            username: 1,
+                            fullName: 1,
+                            email: 1,
+                            avatar: 1
+                        }
+                    }
+                ]
             }
         },
         {
@@ -131,7 +141,7 @@ const getVideoById = asyncHandler(async (req, res) => {
         throw new ApiError(400, "invalid video ID")
     }
 
-    const video = await Video.findById(videoId).populate("owner", "name email")
+    const video = await Video.findById(videoId).populate("owner", "fullName email username")
 
     if(!video) {
         throw new ApiError(404, "video not found")
@@ -219,10 +229,15 @@ const togglePublishStatus = asyncHandler(async (req, res) => {
         throw new ApiError(400, "Invalid video ID")
     }
 
-    const video = await Video.findById(videoId)
+    const video = await Video.findOne(
+        {
+            _id: videoId,
+            owner: req.user?._id
+        }
+    )
 
     if(!video) {
-        throw new ApiError(400, "video not found!!")
+        throw new ApiError(400, "you are not allowed or video not found!!")
     }
 
     video.isPublished = !video.isPublished

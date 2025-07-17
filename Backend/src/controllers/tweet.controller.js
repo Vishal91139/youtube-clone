@@ -1,4 +1,5 @@
-import { isValidObjectId } from "mongoose"
+import { asyncHandler } from "../utils/asyncHandler.js"
+import mongoose, { isValidObjectId } from "mongoose"
 import { Tweet } from "../models/tweet.model.js"
 import { ApiError } from "../utils/ApiError.js"
 import { ApiResponse } from "../utils/ApiResponse.js"
@@ -6,7 +7,7 @@ import { ApiResponse } from "../utils/ApiResponse.js"
 const createTweet = asyncHandler(async (req, res) => {
     const { content } = req.body
 
-    if(req.user){
+    if(!req.user){
         throw new ApiError(400, "user to be loggedIn first!")
     }
 
@@ -25,7 +26,7 @@ const createTweet = asyncHandler(async (req, res) => {
 
     return res
       .status(200)
-      .json(new ApiResponse(200, tweet, "tweet creataed successfully!"))
+      .json(new ApiResponse(200, tweet, "tweet created successfully!"))
 })
 
 const getUserTweets = asyncHandler(async (req, res) => {
@@ -34,10 +35,10 @@ const getUserTweets = asyncHandler(async (req, res) => {
         throw new ApiError(400, "user to be loggedIn first")
     }
 
-    const tweets = await Tweet.aggregate(
+    const tweets = await Tweet.aggregate([
         {
             $match: {
-                owner: req.user
+                owner: new mongoose.Types.ObjectId(req.user._id)
             }
         },
         {
@@ -57,7 +58,7 @@ const getUserTweets = asyncHandler(async (req, res) => {
                 ]
             }
         }
-    )
+    ])
 
     if(!tweets) {
         throw new ApiError(400, "There are no tweets")
@@ -69,7 +70,7 @@ const getUserTweets = asyncHandler(async (req, res) => {
 })
 
 const updateTweet = asyncHandler(async (req, res) => {
-    //TODO: update tweet
+    
     const { tweetId } = req.params
     const { content } = req.body
 
@@ -81,19 +82,21 @@ const updateTweet = asyncHandler(async (req, res) => {
         throw new ApiError(400, "Content is required!")
     }
 
-    const tweet = Tweet.findOneAndUpdate(
+    const tweet = await Tweet.findOneAndUpdate(
         {
             _id: tweetId,
             owner: req.user?._id
         }, 
         {
-            $set: content
+            $set: {
+                content
+            }
         },
         { new: true, runValidators: true }
     )
 
     if(!tweet) {
-        throw new ApiError(400, "tweet not found")
+        throw new ApiError(400, tweet,"tweet not found")
     }
 
     return res
@@ -102,7 +105,7 @@ const updateTweet = asyncHandler(async (req, res) => {
 })
 
 const deleteTweet = asyncHandler(async (req, res) => {
-    //TODO: delete tweet
+    
     const { tweetId } = req.params
 
     if(!isValidObjectId(tweetId)) {

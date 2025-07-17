@@ -63,13 +63,13 @@ const getChannelVideos = asyncHandler(async (req, res) => {
         throw new ApiError(400, "Invalid channelId")
     }
 
-    const allVideo = await Video.aggregate(
+    const allVideo = await Video.aggregate([
         {
             $match: {
                 owner: new mongoose.Types.ObjectId(channelId)
             }
         }
-    )
+    ])
 
     if(!allVideo.length){
         throw new ApiError(400, "no video found")
