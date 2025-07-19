@@ -1,5 +1,5 @@
 import { asyncHandler } from "../utils/asyncHandler.js"
-import { isValidObjectId } from "mongoose"
+import mongoose, { isValidObjectId } from "mongoose"
 import { ApiError } from "../utils/ApiError.js"
 import { Subscription } from "../models/subscription.model.js"
 import { ApiResponse } from "../utils/ApiResponse.js"
@@ -36,15 +36,11 @@ const getUserChannelSubscribers = asyncHandler(async (req, res) => {
     if(!isValidObjectId(channelId)) {
         throw new ApiError(400, "Invalid channelId")
     }
-    
-    if(!req.user) {
-        throw new ApiError(400, "Error: user should to be loggedIn!")
-    }
 
-    const totalSubscribers = await Subscription.aggregate([
+    const aggregationResult = await Subscription.aggregate([
         {
             $match: {
-                channel: channelId
+                channel: new mongoose.Types.ObjectId(channelId)
             }
         },
         {
@@ -52,7 +48,7 @@ const getUserChannelSubscribers = asyncHandler(async (req, res) => {
                 from: "users",
                 localField: "subscriber",
                 foreignField: "_id",
-                as: "totalChannelSubscribers",
+                as: "subscriberDetails",
                 pipeline: [
                     {
                         $project: {
@@ -63,24 +59,32 @@ const getUserChannelSubscribers = asyncHandler(async (req, res) => {
                     }
                 ]
             }
+        },
+        { $unwind: "$subscriberDetails" },
+        {
+            $group: {
+                _id: "$channel",
+                allSubscribers: { $push: "$subscriberDetails" },
+                subscribersCount: { $sum: 1 }
+            }
         }
-    ])
+    ]);
 
-    if(!totalSubscribers.length) {
-        throw new ApiError(400, "there are no subscribers")
-    }
+    const data = aggregationResult[0] || {
+        allSubscribers: [],
+        subscribersCount: 0
+    };
 
     return res
-      .status(200)
-      .json(new ApiResponse(200, totalSubscribers, "fetched successfully"))
+        .status(200)
+        .json(new ApiResponse(200, {
+            allSubscribers: data.allSubscribers,
+            subscribersCount: data.subscribersCount
+        }, "Fetched successfully")
+    );
 })
 
 const getSubscribedChannels = asyncHandler(async (req, res) => {
-    const { subscriberId } = req.params
-
-    if(!isValidObjectId(subscriberId)) {
-        throw new ApiError(400, "Invalid subscriberId")
-    }
     
     if(!req.user) {
         throw new ApiError(400, "Error: user should to be loggedIn!")
@@ -89,7 +93,7 @@ const getSubscribedChannels = asyncHandler(async (req, res) => {
     const TotalChannels = await Subscription.aggregate([
         {
             $match: {
-                subscriber: subscriberId
+                subscriber: req.user._id
             }
         },
         {

@@ -1,21 +1,29 @@
 import { isValidObjectId } from "mongoose"
-import { ApiError } from "../utils/ApiError"
-import { Like } from "../models/like.model"
-import { ApiResponse } from "../utils/ApiResponse"
+import { ApiError } from "../utils/ApiError.js"
+import { Like } from "../models/like.model.js"
+import { Comment } from "../models/comment.model.js"
+import { ApiResponse } from "../utils/ApiResponse.js"
+import { asyncHandler } from "../utils/asyncHandler.js"
+import { Tweet } from "../models/tweet.model.js"
+import { Video } from "../models/video.model.js"
 
 const toggleVideoLike = asyncHandler(async (req, res) => {
     const {videoId} = req.params
-    //TODO: toggle like on video
 
     if(!isValidObjectId(videoId)) {
         throw new ApiError(400, "Invalid videoId")
     }
 
+    const videoDoc = await Video.findById(videoId);
+    if(!videoDoc) {
+        throw new ApiError(400, "video not found")
+    }
+
     const existingLike = await Like.findOne({ video:videoId, likedBy:req.user?._id })
 
     if(existingLike) {
-        existingLike.deleteOne()
-        return res.status(200, {}, "video Unliked!")
+        await existingLike.deleteOne()
+        return res.status(200).json(new ApiResponse(200, {}, "video Unliked!"))
     } 
 
     const videoLiked = await Like.create({
@@ -26,7 +34,6 @@ const toggleVideoLike = asyncHandler(async (req, res) => {
     return res
       .status(200)
       .json(new ApiResponse(200, videoLiked, "video Liked!!"))
-
 })
 
 const toggleCommentLike = asyncHandler(async (req, res) => {
@@ -36,11 +43,16 @@ const toggleCommentLike = asyncHandler(async (req, res) => {
         throw new ApiError(400, "Invalid CommentId!!")
     }
 
+    const commentDoc = await Comment.findById(commentId);
+    if (!commentDoc) {
+        throw new ApiError(404, "Comment not found!");
+    }
+
     const existingLike = await Like.findOne({ comment:commentId, likedBy:req.user?._id })
 
     if(existingLike) {
         await existingLike.deleteOne()
-        return res.status(200, {}, "comment unliked!")
+        return res.status(200).json(new ApiResponse(200, {}, "comment unliked!"))
     }
 
     const likedComment = await Like.create({
@@ -60,15 +72,20 @@ const toggleTweetLike = asyncHandler(async (req, res) => {
         throw new ApiError(400, "Invalid tweetId!!")
     }
 
-    const existingLike = await Like.findOne({ comment:tweetId, likedBy:req.user?._id })
+    const tweetDoc = await Tweet.findById(tweetId);
+    if(!tweetDoc) {
+        throw new ApiError(400, "tweet not found")
+    }
+
+    const existingLike = await Like.findOne({ tweet:tweetId, likedBy:req.user?._id })
 
     if(existingLike) {
         await existingLike.deleteOne()
-        return res.status(200, {}, "Tweet unliked!")
+        return res.status(200).json(new ApiResponse(200, {}, "Tweet unliked!"))
     }
 
     const likedTweet = await Like.create({
-        comment: tweetId,
+        tweet: tweetId,
         likedBy: req.user?._id
     })
 
@@ -79,16 +96,18 @@ const toggleTweetLike = asyncHandler(async (req, res) => {
 )
 
 const getLikedVideos = asyncHandler(async (req, res) => {
-    //TODO: get all liked videos
-    if(req.user) {
+    
+    if(!req.user) {
         throw new ApiError(400, "user should to be loggedIn")
     }
 
-    const likedVideo = await Like.aggregate(
+    const likedVideo = await Like.aggregate([
         {
             $match: {
                 likedBy: req.user._id
-            },
+            }
+        },
+        {
             $lookup: {
                 from: "videos",
                 localField: "video",
@@ -108,15 +127,15 @@ const getLikedVideos = asyncHandler(async (req, res) => {
                 ]
             }
         }
-    )
+    ])
 
-    if(!likedVideo) {
+    if(!likedVideo.length) {
         throw new ApiError(400, "there is no liked videos")
     }
 
     return res
       .status(200)
-      .json(new ApiResponse(200, likedVideo[0].videosLikedByUser, "liked videos fetched successfully"))
+      .json(new ApiResponse(200, likedVideo, "liked videos fetched successfully"))
 })
 
 export {
