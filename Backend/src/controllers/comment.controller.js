@@ -1,7 +1,8 @@
 import mongoose, { isValidObjectId } from "mongoose"
-import { ApiError } from "../utils/ApiError"
-import { Comment } from "../models/comment.model"
-import { ApiResponse } from "../utils/ApiResponse"
+import { ApiError } from "../utils/ApiError.js"
+import { asyncHandler } from "../utils/asyncHandler.js"
+import { Comment } from "../models/comment.model.js"
+import { ApiResponse } from "../utils/ApiResponse.js"
 
 const getVideoComments = asyncHandler(async (req, res) => {
     
@@ -18,14 +19,14 @@ const getVideoComments = asyncHandler(async (req, res) => {
                 video: new mongoose.Types.ObjectId(videoId)
             }
         },
-        {
-            $lookup: {
-                from: "videos",
-                localField: "video",
-                foreignField: "_id",
-                as: "commentOnWhichVideo"
-            }
-        }, 
+        // {
+        //     $lookup: {
+        //         from: "videos",
+        //         localField: "video",
+        //         foreignField: "_id",
+        //         as: "commentOnWhichVideo"
+        //     }
+        // }, 
         {
             $lookup: {
                 from: "users",
@@ -48,9 +49,6 @@ const getVideoComments = asyncHandler(async (req, res) => {
                 content: 1,
                 owner: {
                     $arrayElemAt : ["$ownerOfComment",0]
-                },
-                video: {
-                    $arrayElemAt : ["$commentOnWhichVideo"]
                 },
                 createdAt: 1
             }
@@ -123,7 +121,9 @@ const updateComment = asyncHandler(async (req, res) => {
             owner: req.user?._id
         },
         {
-            $set: content
+            $set: {
+                content
+            }
         },
         { new : true, runValidators: true}
     )
@@ -145,7 +145,7 @@ const deleteComment = asyncHandler(async (req, res) => {
         throw new ApiError(400, "Invalid commentId!")
     }
 
-    const comment = Comment.findOneAndDelete(
+    const comment = await Comment.findOneAndDelete(
         {
             _id: commentId,
             owner: req.user?._id
