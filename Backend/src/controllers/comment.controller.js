@@ -31,7 +31,16 @@ const getVideoComments = asyncHandler(async (req, res) => {
                 from: "users",
                 localField: "owner",
                 foreignField: "_id",
-                as: "ownerOfComment"
+                as: "ownerOfComment",
+                pipeline: [
+                    {
+                        $project: {
+                            username: 1,
+                            fullName: 1,
+                            avatar: 1
+                        }
+                    }
+                ]
             }
         },
         {
@@ -54,7 +63,7 @@ const getVideoComments = asyncHandler(async (req, res) => {
         }
     ])
 
-    if(!comments?.length) {
+    if(!comments.length) {
         throw new ApiError(400, "comments are not found")
     }
 
@@ -76,7 +85,7 @@ const addComment = asyncHandler(async (req, res) => {
         throw new ApiError(400, "comment is required")
     }
 
-    if(req.user) {
+    if(!req.user) {
         throw new ApiError(400, "user should to be logged in")
     }
 
@@ -92,11 +101,11 @@ const addComment = asyncHandler(async (req, res) => {
 
     return res
       .status(200)
-      .json(200, newComment, "Comment added successfully!!")
+      .json(new ApiResponse(200, newComment, "comment added successfully"))
 })
 
 const updateComment = asyncHandler(async (req, res) => {
-    // TODO: update a comment
+    
     const { commentId } = req.params
     const { content } = req.body
 
@@ -129,7 +138,7 @@ const updateComment = asyncHandler(async (req, res) => {
 })
 
 const deleteComment = asyncHandler(async (req, res) => {
-    // TODO: delete a comment
+    
     const { commentId } = req.params
 
     if(!isValidObjectId(commentId)) {
@@ -149,7 +158,7 @@ const deleteComment = asyncHandler(async (req, res) => {
 
     return res
       .status(200)
-      .json(200, {}, "deleted successfully!!")
+      .json(new ApiResponse(200, {}, "comment deleted successfully!"))
 })
 
 export {
